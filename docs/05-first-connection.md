@@ -13,8 +13,11 @@ By the end of this chapter, you'll be able to:
 - ✅ Run basic system commands
 - ✅ Update the system
 - ✅ Understand remote vs local commands
+- ✅ Install and configure Git
+- ✅ Set up SSH keys for GitHub
+- ✅ Clone repositories from GitHub
 
-**Time Required:** 20-30 minutes
+**Time Required:** 40-50 minutes
 
 ---
 
@@ -901,6 +904,397 @@ exit
 
 ---
 
+## Setting Up Git and GitHub
+
+### Why Git on Your Server?
+
+**Git is essential for:**
+- Cloning your infrastructure repository (Chapter 16)
+- Pulling code updates
+- Version control for your projects
+- Collaboration with teams
+- Deploying code changes
+
+**Think of Git as:**
+- Your deployment tool
+- Version control system
+- Code synchronization
+
+---
+
+### Installing Git
+
+**Check if Git is installed:**
+```bash
+git --version
+```
+
+**If not installed, install it:**
+```bash
+apt install -y git
+```
+
+**Verify installation:**
+```bash
+git --version
+```
+
+**Expected output:**
+```
+git version 2.43.0
+```
+
+---
+
+### Configuring Git
+
+**Set your name and email:**
+```bash
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+```
+
+**Example:**
+```bash
+git config --global user.name "John Doe"
+git config --global user.email "john@example.com"
+```
+
+**Why this matters:**
+- Git tracks who makes changes
+- Appears in commit history
+- Important for collaboration
+
+---
+
+**Verify configuration:**
+```bash
+git config --list
+```
+
+**Should show:**
+```
+user.name=John Doe
+user.email=john@example.com
+```
+
+---
+
+### Generating SSH Keys for GitHub
+
+**Why SSH keys for GitHub?**
+- More secure than passwords
+- No password prompts when cloning/pushing
+- Industry standard
+- Required for private repositories
+
+---
+
+**Generate new SSH key pair:**
+```bash
+ssh-keygen -t ed25519 -C "your.email@example.com" -f ~/.ssh/github_ed25519
+```
+
+**You'll see:**
+```
+Generating public/private ed25519 key pair.
+Enter passphrase (empty for no passphrase):
+```
+
+**Press Enter twice** (no passphrase for server automation)
+
+**⚠️ Note:** For personal computers, use a passphrase. For servers, no passphrase allows automated deployments.
+
+---
+
+**Verify keys created:**
+```bash
+ls -la ~/.ssh/
+```
+
+**Should see:**
+```
+-rw------- 1 root root  464 Nov 12 10:00 github_ed25519
+-rw-r--r-- 1 root root  103 Nov 12 10:00 github_ed25519.pub
+```
+
+**Two files:**
+- `github_ed25519` = Private key (keep secret!)
+- `github_ed25519.pub` = Public key (share with GitHub)
+
+---
+
+### Adding SSH Key to GitHub
+
+**Copy your public key:**
+```bash
+cat ~/.ssh/github_ed25519.pub
+```
+
+**Output looks like:**
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILongRandomStringHere your.email@example.com
+```
+
+**Copy the entire output** (from `ssh-ed25519` to your email)
+
+---
+
+**Add to GitHub:**
+
+1. **Go to GitHub:** https://github.com
+2. **Click your profile picture** (top right)
+3. **Click "Settings"**
+4. **Click "SSH and GPG keys"** (left sidebar)
+5. **Click "New SSH key"** (green button)
+6. **Fill in:**
+   - **Title:** `Production Server` (or your server name)
+   - **Key type:** Authentication Key
+   - **Key:** Paste the public key
+7. **Click "Add SSH key"**
+8. **Confirm with your GitHub password**
+
+---
+
+### Testing GitHub Connection
+
+**Test SSH connection to GitHub:**
+```bash
+ssh -T git@github.com -i ~/.ssh/github_ed25519
+```
+
+**First time, you'll see:**
+```
+The authenticity of host 'github.com (140.82.113.4)' can't be established.
+ED25519 key fingerprint is SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU.
+Are you sure you want to continue connecting (yes/no/[fingerprint])?
+```
+
+**Type:** `yes` and press Enter
+
+---
+
+**Expected success message:**
+```
+Hi YourGitHubUsername! You've successfully authenticated, but GitHub does not provide shell access.
+```
+
+**This is good!** It means SSH authentication works.
+
+---
+
+### Configuring SSH for GitHub
+
+**Make GitHub use your new key automatically:**
+
+```bash
+nano ~/.ssh/config
+```
+
+**Add:**
+```
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/github_ed25519
+    IdentitiesOnly yes
+```
+
+**Save and exit:**
+```
+Ctrl+X
+Y (yes)
+Enter
+```
+
+---
+
+**Set permissions:**
+```bash
+chmod 600 ~/.ssh/config
+```
+
+---
+
+**Test again (simpler command now):**
+```bash
+ssh -T git@github.com
+```
+
+**Should work without specifying `-i` flag!**
+
+---
+
+### Cloning a Repository (Test)
+
+**Test cloning a public repository:**
+```bash
+cd ~
+git clone https://github.com/github/gitignore.git
+```
+
+**Or test with SSH:**
+```bash
+git clone git@github.com:github/gitignore.git
+```
+
+**Should clone successfully!**
+
+---
+
+**Clean up test:**
+```bash
+rm -rf ~/gitignore
+```
+
+---
+
+### Git Workflow Basics
+
+**Common Git commands you'll use:**
+
+**1. Clone repository:**
+```bash
+git clone git@github.com:username/repository.git
+cd repository
+```
+
+**2. Check status:**
+```bash
+git status
+```
+
+**3. Pull latest changes:**
+```bash
+git pull
+```
+
+**4. Make changes and commit:**
+```bash
+git add .
+git commit -m "Description of changes"
+```
+
+**5. Push to GitHub:**
+```bash
+git push origin master
+```
+
+---
+
+### Git Best Practices on Server
+
+**Do:**
+- ✅ Clone repositories you need
+- ✅ Pull updates regularly
+- ✅ Use SSH keys for authentication
+- ✅ Keep separate SSH key for server
+
+**Don't:**
+- ❌ Make commits directly on server (use local dev machine)
+- ❌ Store passwords in repositories
+- ❌ Commit sensitive .env files
+- ❌ Use server for development (use for deployment only)
+
+---
+
+### GitHub Personal Access Tokens (Alternative)
+
+**If you prefer HTTPS over SSH:**
+
+**Create Personal Access Token:**
+1. GitHub → Settings → Developer settings
+2. Personal access tokens → Tokens (classic)
+3. Generate new token
+4. Select scopes: `repo`
+5. Copy token (can't see it again!)
+
+**Clone with token:**
+```bash
+git clone https://TOKEN@github.com/username/repository.git
+```
+
+**Or set up credential helper:**
+```bash
+git config --global credential.helper store
+git clone https://github.com/username/repository.git
+# Enter username and token when prompted
+# Credentials stored for future use
+```
+
+**⚠️ SSH keys are more secure and recommended!**
+
+---
+
+### Troubleshooting Git/GitHub
+
+**Problem: Permission denied (publickey)**
+```
+git@github.com: Permission denied (publickey).
+```
+
+**Solution:**
+```bash
+# Check SSH key exists
+ls ~/.ssh/github_ed25519
+
+# Test connection with verbose output
+ssh -Tv git@github.com
+
+# Verify key added to GitHub (web interface)
+# Check SSH config (~/.ssh/config)
+```
+
+---
+
+**Problem: Could not resolve hostname github.com**
+```
+Could not resolve hostname github.com
+```
+
+**Solution:**
+```bash
+# Check DNS
+ping -c 3 github.com
+
+# Check /etc/resolv.conf
+cat /etc/resolv.conf
+
+# Should have nameservers (usually 8.8.8.8 or similar)
+```
+
+---
+
+**Problem: Repository not found**
+```
+ERROR: Repository not found.
+```
+
+**Solution:**
+- Check repository URL is correct
+- Verify you have access to the repository
+- Check if repository is private (need proper SSH key added)
+- Test: `ssh -T git@github.com`
+
+---
+
+### Git Checklist
+
+**Verify Git setup:**
+```
+□ Git installed (git --version)
+□ Git configured (user.name and user.email)
+□ SSH key generated for GitHub
+□ Public key added to GitHub account
+□ SSH connection to GitHub tested
+□ ~/.ssh/config configured
+□ Can clone repositories
+```
+
+**Test each item before proceeding!**
+
+---
+
 ## Security Notes
 
 ### What We Learned
@@ -944,12 +1338,18 @@ exit
    - Security patches critical
    - Reboot if kernel updated
 
-4. **Server runs 24/7**
+4. **Git is essential for deployment**
+   - Install and configure Git
+   - Use SSH keys for GitHub
+   - Clone repositories to deploy code
+   - Pull updates regularly
+
+5. **Server runs 24/7**
    - Disconnecting doesn't stop it
    - Always accessible
    - Costs money while running
 
-5. **Multiple terminals helpful**
+6. **Multiple terminals helpful**
    - One for SSH connection
    - One for local commands
    - Reduces confusion
@@ -963,6 +1363,8 @@ exit
 - ✅ Updated system
 - ✅ Basic server knowledge
 - ✅ Comfort with remote access
+- ✅ Git installed and configured
+- ✅ GitHub SSH access working
 
 **In Chapter 6:**
 - Create regular user account
@@ -999,6 +1401,32 @@ uname -a        # Kernel version
 
 # Disconnect
 exit            # or Ctrl+D
+```
+
+### Git Commands
+```bash
+# Installation and configuration
+git --version                              # Verify installation
+git config --global user.name "Your Name" # Set name
+git config --global user.email "email"    # Set email
+git config --list                          # View settings
+
+# SSH key generation
+ssh-keygen -t ed25519 -C "email@example.com" -f ~/.ssh/github_ed25519
+
+# Test GitHub connection
+ssh -T git@github.com
+
+# Repository operations
+git clone git@github.com:username/repo.git   # Clone via SSH
+git clone https://github.com/username/repo   # Clone via HTTPS
+cd repo                                      # Navigate to repo
+git pull                                     # Get latest changes
+git status                                   # Check status
+
+# Troubleshooting
+cat ~/.ssh/github_ed25519.pub   # View public key
+ssh -vT git@github.com          # Verbose connection test
 ```
 
 ### Connection String (save this)
