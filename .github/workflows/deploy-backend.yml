@@ -1,0 +1,78 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'projects/backend/**'
+      - 'infrastructure/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Get the code
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Set up SSH
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+      
+      # Deploy to server
+      - name: Deploy to server
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            set -e
+            echo "🚀 Starting deployment..."
+            
+            # Navigate to project
+            cd ~/mywebclass_hosting
+            
+            # Pull latest changes
+            git pull origin master
+            
+            # Deploy backend with Docker Compose
+            cd ~/mywebclass_hosting/projects/backend
+            docker compose up -d --build
+            
+            # Wait for containers to be ready
+            sleep 10
+            
+            # Check if backend is running
+            if docker ps | grep -q backend; then
+              echo "✅ Backend container is running"
+            else
+              echo "❌ Backend container failed to start"
+              docker compose logs backend
+              exit 1
+            fi
+            
+            echo "✅ Deployment completed successfully!"
+          EOF
+      
+      # Health check
+      - name: Health check
+        run: |
+          # Wait for app to be ready
+          sleep 5
+          
+          # Check if API is responding (adjust URL as needed)
+          status_code=$(curl -s -o /dev/null -w "%{http_code}" https://api.theratoast.com/health || echo "000")
+          
+          if [ "$status_code" = "200" ]; then
+            echo "✅ Health check passed (HTTP $status_code)"
+          else
+            echo "⚠️  Health check returned HTTP $status_code (may need time to start)"
+          fi
+      
+      # Cleanup
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
