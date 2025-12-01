@@ -16,16 +16,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p 2222 ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+      
+      - name: Test SSH connection
+        run: |
+          ssh -v -o ConnectTimeout=10 \
+              -i ~/.ssh/deploy_key \
+              -p 2222 \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+              'echo "SSH connection successful"'
+      
       - name: Deploy via SSH
         run: |
-          # Write SSH key to file
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > deploy_key
-          chmod 600 deploy_key
-          
-          # Deploy using SSH
-          ssh -o StrictHostKeyChecking=no \
-              -o UserKnownHostsFile=/dev/null \
-              -i deploy_key \
+          ssh -i ~/.ssh/deploy_key \
               -p 2222 \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
               'cd ~/mywebclass_hosting && \
@@ -35,9 +43,10 @@ jobs:
                sleep 10 && \
                docker ps | grep backend && \
                echo "✅ Deployment completed successfully!"'
-          
-          # Cleanup
-          rm -f deploy_key
+      
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
       
       # Health check
       - name: Health check
