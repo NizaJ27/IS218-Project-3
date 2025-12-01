@@ -13,45 +13,31 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      # Get the code
       - name: Checkout code
         uses: actions/checkout@v4
       
-      # Deploy to server using SSH action
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 2222
-          script: |
-            set -e
-            echo "🚀 Starting deployment..."
-            
-            # Navigate to project
-            cd ~/mywebclass_hosting
-            
-            # Pull latest changes
-            git pull origin master
-            
-            # Deploy backend with Docker Compose
-            cd ~/mywebclass_hosting/projects/backend
-            docker compose up -d --build
-            
-            # Wait for containers to be ready
-            sleep 10
-            
-            # Check if backend is running
-            if docker ps | grep -q backend; then
-              echo "✅ Backend container is running"
-            else
-              echo "❌ Backend container failed to start"
-              docker compose logs backend
-              exit 1
-            fi
-            
-            echo "✅ Deployment completed successfully!"
+      - name: Deploy via SSH
+        run: |
+          # Write SSH key to file
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > deploy_key
+          chmod 600 deploy_key
+          
+          # Deploy using SSH
+          ssh -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -i deploy_key \
+              -p 2222 \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+              'cd ~/mywebclass_hosting && \
+               git pull origin master && \
+               cd ~/mywebclass_hosting/projects/backend && \
+               docker compose up -d --build && \
+               sleep 10 && \
+               docker ps | grep backend && \
+               echo "✅ Deployment completed successfully!"'
+          
+          # Cleanup
+          rm -f deploy_key
       
       # Health check
       - name: Health check
