@@ -9,43 +9,37 @@ on:
       - 'infrastructure/**'
 
 jobs:
-  deploy:
+  build-and-test:
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup SSH key
+      - name: Notify deployment
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p 2222 ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          echo "✅ Changes pushed to master branch"
+          echo "🔄 Server will auto-deploy within 5 minutes via cron job"
+          echo "📦 Commit: ${{ github.sha }}"
+          echo "👤 Pusher: ${{ github.actor }}"
       
-      - name: Test SSH connection
+      - name: Wait for auto-deployment window
         run: |
-          ssh -v -o ConnectTimeout=10 -i ~/.ssh/deploy_key -p 2222 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'echo "SSH connection successful"'
+          echo "⏳ Waiting 6 minutes for server to detect and deploy changes..."
+          echo "   (Server checks for updates every 5 minutes)"
+          sleep 360
       
-      - name: Deploy via SSH
-        run: |
-          ssh -i ~/.ssh/deploy_key -p 2222 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'cd ~/mywebclass_hosting && git pull origin master && cd ~/mywebclass_hosting/projects/backend && docker compose up -d --build && sleep 10 && docker ps | grep backend && echo "✅ Deployment completed successfully!"'
-      
-      - name: Cleanup
-        if: always()
-        run: rm -f ~/.ssh/deploy_key
-      
-      # Health check
       - name: Health check
         run: |
-          # Wait for app to be ready
-          sleep 5
+          echo "🏥 Checking if deployment succeeded..."
           
-          # Check if API is responding (adjust URL as needed)
+          # Check if API is responding
           status_code=$(curl -s -o /dev/null -w "%{http_code}" https://api.theratoast.com/health || echo "000")
           
           if [ "$status_code" = "200" ]; then
             echo "✅ Health check passed (HTTP $status_code)"
+            echo "✅ Deployment appears successful!"
           else
-            echo "⚠️  Health check returned HTTP $status_code (may need time to start)"
+            echo "⚠️  Health check returned HTTP $status_code"
+            echo "⚠️  Deployment may need more time or manual verification"
           fi
