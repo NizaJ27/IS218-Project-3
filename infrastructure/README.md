@@ -68,3 +68,6 @@ docker compose up -d
 - SSL certificates are automatically managed by Caddy
 - PostgreSQL data persists in Docker volumes
 - All passwords should be changed from the examples!
+
+## CI/CD
+Automated deployment configured via GitHub Actions.
