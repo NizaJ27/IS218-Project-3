@@ -19,18 +19,31 @@ jobs:
       
       # Set up SSH
       - name: Set up SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-      
-      # Deploy to server
-      - name: Deploy to server
         env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_USER: ${{ secrets.SERVER_USER }}
         run: |
-          ssh -i ~/.ssh/deploy_key -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${SERVER_USER}@${SERVER_HOST} << 'EOF'
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          
+          # Create SSH config file
+          cat > ~/.ssh/config <<EOL
+          Host deployserver
+            HostName $SERVER_HOST
+            User $SERVER_USER
+            Port 2222
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+          EOL
+          chmod 600 ~/.ssh/config
+      
+      # Deploy to server
+      - name: Deploy to server
+        run: |
+          ssh deployserver << 'EOF'
             set -e
             echo "🚀 Starting deployment..."
             
