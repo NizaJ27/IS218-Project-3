@@ -25,24 +25,11 @@ jobs:
       
       - name: Test SSH connection
         run: |
-          ssh -v -o ConnectTimeout=10 \
-              -i ~/.ssh/deploy_key \
-              -p 2222 \
-              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-              'echo "SSH connection successful"'
+          ssh -v -o ConnectTimeout=10 -i ~/.ssh/deploy_key -p 2222 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'echo "SSH connection successful"'
       
       - name: Deploy via SSH
         run: |
-          ssh -i ~/.ssh/deploy_key \
-              -p 2222 \
-              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-              'cd ~/mywebclass_hosting && \
-               git pull origin master && \
-               cd ~/mywebclass_hosting/projects/backend && \
-               docker compose up -d --build && \
-               sleep 10 && \
-               docker ps | grep backend && \
-               echo "✅ Deployment completed successfully!"'
+          ssh -i ~/.ssh/deploy_key -p 2222 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'cd ~/mywebclass_hosting && git pull origin master && cd ~/mywebclass_hosting/projects/backend && docker compose up -d --build && sleep 10 && docker ps | grep backend && echo "✅ Deployment completed successfully!"'
       
       - name: Cleanup
         if: always()
