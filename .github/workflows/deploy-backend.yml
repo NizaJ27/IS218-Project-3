@@ -17,33 +17,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      # Set up SSH
-      - name: Set up SSH
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          
-          # Create SSH config file
-          cat > ~/.ssh/config <<EOL
-          Host deployserver
-            HostName $SERVER_HOST
-            User $SERVER_USER
-            Port 2222
-            IdentityFile ~/.ssh/deploy_key
-            StrictHostKeyChecking no
-            UserKnownHostsFile /dev/null
-          EOL
-          chmod 600 ~/.ssh/config
-      
-      # Deploy to server
+      # Deploy to server using SSH action
       - name: Deploy to server
-        run: |
-          ssh deployserver << 'EOF'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 2222
+          script: |
             set -e
             echo "🚀 Starting deployment..."
             
@@ -70,7 +52,6 @@ jobs:
             fi
             
             echo "✅ Deployment completed successfully!"
-          EOF
       
       # Health check
       - name: Health check
@@ -86,8 +67,3 @@ jobs:
           else
             echo "⚠️  Health check returned HTTP $status_code (may need time to start)"
           fi
-      
-      # Cleanup
-      - name: Cleanup
-        if: always()
-        run: rm -f ~/.ssh/deploy_key
