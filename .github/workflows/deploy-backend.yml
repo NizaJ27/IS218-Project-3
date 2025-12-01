@@ -23,12 +23,20 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p 2222 -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+          cat >> ~/.ssh/config << EOF
+          Host deploy-server
+            HostName ${{ secrets.SERVER_HOST }}
+            User ${{ secrets.SERVER_USER }}
+            Port 2222
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+          EOF
       
       # Deploy to server
       - name: Deploy to server
         run: |
-          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+          ssh deploy-server << 'EOF'
             set -e
             echo "🚀 Starting deployment..."
             
